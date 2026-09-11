@@ -2,7 +2,7 @@
 // API CONFIGURATION
 // =========================================================
 
-const API_URL = "https://afri-spender-backend.onrender.com";
+const API_BASE_URL = "https://afri-spender-backend.onrender.com";
 
 const TOKEN_KEY = "afri_access_token";
 
