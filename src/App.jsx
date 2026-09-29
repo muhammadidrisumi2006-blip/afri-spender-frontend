@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { App as CapacitorApp } from "@capacitor/app";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import {
   createTransaction as createBackendTransaction,
@@ -372,6 +373,17 @@ export default function App() {
   const [loggedIn, setLoggedIn] =
     useState(() => isAuthenticated());
 
+  const googleExchangeStarted = useRef(false);
+
+  const [profileMenuOpen, setProfileMenuOpen] =
+    useState(false);
+
+  const [profileName, setProfileName] =
+    useState("Afri Spender User");
+
+  const [profileNameDraft, setProfileNameDraft] =
+    useState("Afri Spender User");
+
   const [loadingData, setLoadingData] =
     useState(false);
 
@@ -454,34 +466,37 @@ export default function App() {
     };
   }, []);
 
-  /* =======================================================
+   /* =======================================================
      GOOGLE OAUTH CALLBACK
   ======================================================= */
 
   useEffect(() => {
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
+    async function completeGoogleLogin(
+      googleCode,
+      cleanupUrl = false
+    ) {
+      if (!googleCode) {
+        return;
+      }
 
-    const googleCode =
-      params.get("google_code");
+      if (googleExchangeStarted.current) {
+        return;
+      }
 
-    if (!googleCode) {
-      return;
-    }
+      googleExchangeStarted.current = true;
 
-    async function completeGoogleLogin() {
       try {
         await exchangeGoogleCode(
           googleCode
         );
 
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
+        if (cleanupUrl) {
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          );
+        }
 
         setApiError("");
         setLoggedIn(true);
@@ -491,11 +506,13 @@ export default function App() {
           "afri_access_token"
         );
 
-        window.history.replaceState(
-          {},
-          document.title,
-          window.location.pathname
-        );
+        if (cleanupUrl) {
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          );
+        }
 
         setLoggedIn(false);
 
@@ -506,7 +523,108 @@ export default function App() {
       }
     }
 
-    completeGoogleLogin();
+    /* -------------------------------------------------------
+       NORMAL WEB GOOGLE CALLBACK
+    ------------------------------------------------------- */
+
+    const browserParams =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    const browserGoogleCode =
+      browserParams.get("google_code");
+
+    if (browserGoogleCode) {
+      completeGoogleLogin(
+        browserGoogleCode,
+        true
+      );
+    }
+
+    /* -------------------------------------------------------
+       ANDROID DEEP LINK
+       afrispender://google-callback?google_code=...
+    ------------------------------------------------------- */
+
+    const handleAppUrl = async (event) => {
+      const url = event?.url;
+
+      if (!url) {
+        return;
+      }
+
+      try {
+        const parsedUrl =
+          new URL(url);
+
+        if (
+          parsedUrl.protocol !==
+            "afrispender:" ||
+          parsedUrl.hostname !==
+            "google-callback"
+        ) {
+          return;
+        }
+
+        const googleCode =
+          parsedUrl.searchParams.get(
+            "google_code"
+          );
+
+        if (!googleCode) {
+          return;
+        }
+
+        await completeGoogleLogin(
+          googleCode,
+          false
+        );
+      } catch (error) {
+        console.error(
+          "Could not process Android Google callback:",
+          error
+        );
+      }
+    };
+
+    /* -------------------------------------------------------
+       LISTEN FOR DEEP LINKS WHILE APP IS OPEN
+    ------------------------------------------------------- */
+
+    let listener;
+
+    CapacitorApp.addListener(
+      "appUrlOpen",
+      handleAppUrl
+    ).then((result) => {
+      listener = result;
+    });
+
+    /* -------------------------------------------------------
+       HANDLE DEEP LINK WHEN APP WAS CLOSED
+    ------------------------------------------------------- */
+
+    CapacitorApp.getLaunchUrl()
+      .then((launchUrl) => {
+        if (launchUrl?.url) {
+          handleAppUrl({
+            url: launchUrl.url,
+          });
+        }
+      })
+      .catch((error) => {
+        console.error(
+          "Could not get Android launch URL:",
+          error
+        );
+      });
+
+    return () => {
+      if (listener) {
+        listener.remove();
+      }
+    };
   }, []);
 
   /* =======================================================
@@ -532,6 +650,33 @@ export default function App() {
         ]);
 
         setUserProfile(profile);
+
+        const profileEmail =
+          profile?.email || "";
+
+        const storedProfileName = profileEmail
+          ? localStorage.getItem(
+              `afri_profile_name_${profileEmail}`
+            )
+          : null;
+
+        const fallbackProfileName =
+          profileEmail
+            ? profileEmail
+                .split("@")[0]
+                .replace(/[._-]+/g, " ")
+                .replace(/\b\w/g, (letter) =>
+                  letter.toUpperCase()
+                )
+            : "Afri Spender User";
+
+        const resolvedProfileName =
+          storedProfileName?.trim() ||
+          profile?.name?.trim() ||
+          fallbackProfileName;
+
+        setProfileName(resolvedProfileName);
+        setProfileNameDraft(resolvedProfileName);
 
         setCurrencyState(
           profile?.currency || "NGN"
@@ -582,6 +727,49 @@ export default function App() {
 
     loadBackendData();
   }, [loggedIn]);
+
+  /* =======================================================
+     PROFILE
+  ======================================================= */
+
+  const profileEmail =
+    userProfile?.email ||
+    "No email available";
+
+  const profileInitials =
+    profileName
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "AS";
+
+  function saveProfileName() {
+    const cleanedName =
+      profileNameDraft.trim();
+
+    const finalName =
+      cleanedName || "Afri Spender User";
+
+    setProfileName(finalName);
+    setProfileNameDraft(finalName);
+
+    if (userProfile?.email) {
+      localStorage.setItem(
+        `afri_profile_name_${userProfile.email}`,
+        finalName
+      );
+    }
+
+    setProfileMenuOpen(false);
+  }
+
+  function cancelProfileEdit() {
+    setProfileNameDraft(profileName);
+    setProfileMenuOpen(false);
+  }
 
   /* =======================================================
      MAIN CURRENCY CHANGE
@@ -1097,10 +1285,6 @@ export default function App() {
     }
   }
 
-  /* =======================================================
-     NOT LOGGED IN
-  ======================================================= */
-
   if (!loggedIn) {
     return (
       <Login
@@ -1112,12 +1296,13 @@ export default function App() {
           setApiError("");
 
           window.location.href =
-            getGoogleLoginUrl();
+            getGoogleLoginUrl("android");
         }}
         apiError={apiError}
       />
     );
   }
+
 
   /* =======================================================
      MAIN UI
@@ -1147,6 +1332,36 @@ export default function App() {
           }
           onAdd={
             openTransactionModal
+          }
+          profileName={
+            profileName
+          }
+          profileInitials={
+            profileInitials
+          }
+          profileEmail={
+            profileEmail
+          }
+          profileMenuOpen={
+            profileMenuOpen
+          }
+          setProfileMenuOpen={
+            setProfileMenuOpen
+          }
+          profileNameDraft={
+            profileNameDraft
+          }
+          setProfileNameDraft={
+            setProfileNameDraft
+          }
+          saveProfileName={
+            saveProfileName
+          }
+          cancelProfileEdit={
+            cancelProfileEdit
+          }
+          onLogout={
+            handleLogout
           }
         />
 
@@ -1460,6 +1675,16 @@ function Topbar({
   currencies,
   rateStatus,
   onAdd,
+  profileName,
+  profileInitials,
+  profileEmail,
+  profileMenuOpen,
+  setProfileMenuOpen,
+  profileNameDraft,
+  setProfileNameDraft,
+  saveProfileName,
+  cancelProfileEdit,
+  onLogout,
 }) {
   const selected =
     getCurrency(currency);
@@ -1543,6 +1768,223 @@ function Topbar({
         >
           + Add Transaction
         </button>
+
+        <div
+          style={{
+            position: "relative",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              setProfileMenuOpen(
+                (previous) => !previous
+              )
+            }
+            aria-label="Open profile menu"
+            aria-expanded={profileMenuOpen}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(255,255,255,0.04)",
+              color: "inherit",
+              borderRadius: "12px",
+              padding: "6px 10px 6px 6px",
+              cursor: "pointer",
+            }}
+          >
+            <span
+              style={{
+                width: "38px",
+                height: "38px",
+                borderRadius: "50%",
+                display: "grid",
+                placeItems: "center",
+                background: "rgba(255,255,255,0.10)",
+                border: "1px solid rgba(255,255,255,0.16)",
+                fontWeight: 800,
+                fontSize: "13px",
+              }}
+            >
+              {profileInitials}
+            </span>
+
+            <span
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                maxWidth: "150px",
+              }}
+            >
+              <strong
+                style={{
+                  fontSize: "13px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: "150px",
+                }}
+              >
+                {profileName}
+              </strong>
+              <small
+                style={{
+                  opacity: 0.6,
+                  fontSize: "11px",
+                }}
+              >
+                Profile ▾
+              </small>
+            </span>
+          </button>
+
+          {profileMenuOpen && (
+            <div
+              style={{
+                position: "absolute",
+                right: 0,
+                top: "calc(100% + 10px)",
+                width: "280px",
+                zIndex: 1000,
+                padding: "18px",
+                borderRadius: "16px",
+                background: "var(--card, #151515)",
+                color: "inherit",
+                border: "1px solid rgba(255,255,255,0.12)",
+                boxShadow: "0 18px 50px rgba(0,0,0,0.35)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  marginBottom: "16px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "48px",
+                    height: "48px",
+                    borderRadius: "50%",
+                    display: "grid",
+                    placeItems: "center",
+                    background: "rgba(255,255,255,0.08)",
+                    fontWeight: 800,
+                  }}
+                >
+                  {profileInitials}
+                </div>
+
+                <div
+                  style={{
+                    minWidth: 0,
+                  }}
+                >
+                  <strong
+                    style={{
+                      display: "block",
+                      marginBottom: "3px",
+                    }}
+                  >
+                    {profileName}
+                  </strong>
+                  <small
+                    style={{
+                      display: "block",
+                      opacity: 0.6,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {profileEmail}
+                  </small>
+                </div>
+              </div>
+
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "12px",
+                  marginBottom: "7px",
+                  opacity: 0.7,
+                }}
+              >
+                Display name
+              </label>
+
+              <input
+                value={profileNameDraft}
+                onChange={(event) =>
+                  setProfileNameDraft(
+                    event.target.value
+                  )
+                }
+                maxLength={50}
+                placeholder="Your name"
+                style={{
+                  width: "100%",
+                  boxSizing: "border-box",
+                  padding: "11px 12px",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "inherit",
+                  outline: "none",
+                  marginBottom: "10px",
+                }}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  marginBottom: "12px",
+                }}
+              >
+                <button
+                  type="button"
+                  className="primary-button"
+                  onClick={saveProfileName}
+                  style={{
+                    flex: 1,
+                  }}
+                >
+                  Save Profile
+                </button>
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={cancelProfileEdit}
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={onLogout}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(255,80,80,0.22)",
+                  background: "rgba(255,80,80,0.08)",
+                  color: "inherit",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                }}
+              >
+                Logout
+              </button>
+            </div>
+          )}
+        </div>
 
       </div>
 

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Afri Spender</string>
+    <string name="title_activity_main">Afri Spender</string>
+    <string name="package_name">com.afrispender.app</string>
+    <string name="custom_url_scheme">com.afrispender.app</string>
+</resources>

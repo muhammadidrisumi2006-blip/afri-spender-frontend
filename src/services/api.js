@@ -62,7 +62,7 @@ async function request(
       headers: requestHeaders,
       body: requestBody,
       credentials:
-        credentials || "same-origin",
+  credentials || "include",
     }
   );
 
@@ -175,10 +175,11 @@ export async function loginUser(
 // GOOGLE LOGIN URL
 // =========================================================
 
-export function getGoogleLoginUrl() {
-
+export function getGoogleLoginUrl(
+  platform = "web"
+) {
   return (
-    `${API_BASE_URL}/users/google/login`
+    `${API_BASE_URL}/users/google/login?platform=${platform}`
   );
 }
 
