@@ -402,3 +402,18 @@ export async function deleteBudget(
 export {
   TOKEN_KEY,
 };
+
+// Password reset
+export async function requestPasswordReset(email) {
+  return request("/users/password/forgot", {
+    method: "POST",
+    body: { email },
+  });
+}
+
+export async function resetPassword(token, password) {
+  return request("/users/password/reset", {
+    method: "POST",
+    body: { token, password },
+  });
+}
