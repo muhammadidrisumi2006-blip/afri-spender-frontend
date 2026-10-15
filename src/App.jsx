@@ -4341,32 +4341,31 @@ function Login({
               "center",
             justifyContent:
               "center",
-            gap: "10px",
-            padding:
-              "13px",
-            marginBottom:
-              "18px",
-            borderRadius:
-              "10px",
-            border:
-              "1px solid rgba(255,255,255,0.15)",
-            background:
-              "#fff",
-            color:
-              "#111",
-            fontWeight:
-              600,
-            cursor:
-              "pointer",
+            gap: "14px",
+            minHeight: "58px",
+            padding: "16px 22px",
+            marginBottom: "20px",
+            borderRadius: "14px",
+            border: "1px solid rgba(255,255,255,0.22)",
+            background: "#fff",
+            color: "#111",
+            fontSize: "16px",
+            fontWeight: 700,
+            letterSpacing: "0.1px",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.16)",
+            cursor: submitting ? "wait" : "pointer",
+            transition: "transform 160ms ease, box-shadow 160ms ease",
+            opacity: submitting ? 0.7 : 1,
           }}
         >
 
           <span
             style={{
-              fontSize:
-                "18px",
-              fontWeight:
-                700,
+              fontSize: "24px",
+              fontWeight: 800,
+              lineHeight: 1,
+              fontFamily: "Arial, sans-serif",
+              color: "#4285F4",
             }}
           >
             G
