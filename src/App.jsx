@@ -13,6 +13,8 @@ import {
   updateMyCurrency,
   getGoogleLoginUrl,
   exchangeGoogleCode,
+  requestPasswordReset,
+  resetPassword,
 } from "./services/api";
 
 /* =========================================================
@@ -4138,486 +4140,219 @@ function Login({
   onGoogleLogin,
   apiError,
 }) {
-  const [
-    mode,
-    setMode,
-  ] = useState("login");
+  const resetToken = new URLSearchParams(window.location.search).get("reset_token") || "";
+  const [mode, setMode] = useState(resetToken ? "reset-confirm" : "login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [localError, setLocalError] = useState("");
 
-  const [
-    email,
-    setEmail,
-  ] = useState("");
+  const isRegister = mode === "register";
+  const isResetRequest = mode === "reset-request";
+  const isResetConfirm = mode === "reset-confirm";
+  const isResetMode = isResetRequest || isResetConfirm;
 
-  const [
-    password,
-    setPassword,
-  ] = useState("");
-
-  const [
-    confirmPassword,
-    setConfirmPassword,
-  ] = useState("");
-
-  const [
-    submitting,
-    setSubmitting,
-  ] = useState(false);
-
-  const [
-    successMessage,
-    setSuccessMessage,
-  ] = useState("");
-
-  const isRegister =
-    mode === "register";
-
-  function switchMode(
-    nextMode
-  ) {
+  function switchMode(nextMode) {
     setMode(nextMode);
     setPassword("");
     setConfirmPassword("");
     setSuccessMessage("");
+    setLocalError("");
   }
 
-  async function submit(
-    event
-  ) {
+  async function submit(event) {
     event.preventDefault();
-
     setSuccessMessage("");
+    setLocalError("");
 
-    if (
-      !email.trim() ||
-      !password
-    ) {
-      return;
-    }
-
-    if (
-      isRegister &&
-      password !==
-        confirmPassword
-    ) {
-      return;
-    }
+    if (isResetRequest && !email.trim()) return;
+    if (!isResetRequest && !isResetConfirm && (!email.trim() || !password)) return;
+    if (isRegister && password !== confirmPassword) return;
+    if (isResetConfirm && (password.length < 8 || password !== confirmPassword)) return;
 
     setSubmitting(true);
-
     try {
-      if (isRegister) {
-
-        await onRegister(
-          email.trim(),
-          password,
-          "NGN"
+      if (isResetRequest) {
+        const result = await requestPasswordReset(email.trim());
+        setSuccessMessage(
+          result?.message ||
+          "If an account exists for that email, a password reset link has been sent."
         );
-
+      } else if (isResetConfirm) {
+        const result = await resetPassword(resetToken, password);
+        setSuccessMessage(result?.message || "Password updated. You can now sign in.");
+        window.history.replaceState({}, "", window.location.pathname);
+        setPassword("");
+        setConfirmPassword("");
+        setMode("login");
+      } else if (isRegister) {
+        await onRegister(email.trim(), password, "NGN");
         setMode("login");
         setPassword("");
         setConfirmPassword("");
-
-        setSuccessMessage(
-          "Account created successfully. You can now sign in."
-        );
-
+        setSuccessMessage("Account created successfully. You can now sign in.");
       } else {
-
-        await onLogin(
-          email.trim(),
-          password
-        );
-
+        await onLogin(email.trim(), password);
       }
-    } catch {
-      /*
-        The parent handler provides
-        the actual error message.
-      */
+    } catch (error) {
+      setLocalError(error?.message || "Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
   }
 
+  const title = isResetRequest
+    ? "Forgot your password?"
+    : isResetConfirm
+      ? "Choose a new password"
+      : isRegister
+        ? "Create your account"
+        : "Welcome back";
+
+  const description = isResetRequest
+    ? "We'll email you a secure link to reset it."
+    : isResetConfirm
+      ? "Choose a new password for your Afri Spender account."
+      : isRegister
+        ? "Start managing your money smarter."
+        : "Manage your money smarter.";
+
   return (
     <div className="login-page">
-
       <div className="login-card">
-
         <div className="brand login-brand">
-
-          <div className="brand-symbol">
-            A
-          </div>
-
+          <div className="brand-symbol">A</div>
           <div>
-
-            <strong>
-              AFRI
-            </strong>
-
-            <span>
-              SPENDER
-            </span>
-
+            <strong>AFRI</strong>
+            <span>SPENDER</span>
           </div>
-
         </div>
 
-        <h1>
-          {isRegister
-            ? "Create your account"
-            : "Welcome back"}
-        </h1>
+        <h1>{title}</h1>
+        <p>{description}</p>
 
-        <p>
-          {isRegister
-            ? "Start managing your money smarter."
-            : "Manage your money smarter."}
-        </p>
+        {!isResetMode && (
+          <>
+            <div className="auth-mode-switch">
+              <button type="button" onClick={() => switchMode("login")} className={mode === "login" ? "active" : ""}>Login</button>
+              <button type="button" onClick={() => switchMode("register")} className={isRegister ? "active" : ""}>Register</button>
+            </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "1fr 1fr",
-            gap: "8px",
-            marginBottom:
-              "20px",
-            padding: "4px",
-            borderRadius:
-              "10px",
-            background:
-              "rgba(255,255,255,0.05)",
-          }}
-        >
+            <button
+              className="google-login-button"
+              type="button"
+              onClick={onGoogleLogin}
+              disabled={submitting}
+            >
+              <span className="google-letter">G</span>
+              {isRegister ? "Continue with Google" : "Sign in with Google"}
+            </button>
 
-          <button
-            type="button"
-            onClick={() =>
-              switchMode(
-                "login"
-              )
-            }
-            style={{
-              border: "none",
-              borderRadius:
-                "8px",
-              padding: "10px",
-              cursor:
-                "pointer",
-              background:
-                mode ===
-                "login"
-                  ? "#fff"
-                  : "transparent",
-              color:
-                mode ===
-                "login"
-                  ? "#111"
-                  : "#fff",
-              fontWeight: 600,
-            }}
-          >
-            Login
-          </button>
+            <div className="auth-divider">
+              <span />
+              OR
+              <span />
+            </div>
+          </>
+        )}
 
-          <button
-            type="button"
-            onClick={() =>
-              switchMode(
-                "register"
-              )
-            }
-            style={{
-              border: "none",
-              borderRadius:
-                "8px",
-              padding: "10px",
-              cursor:
-                "pointer",
-              background:
-                mode ===
-                "register"
-                  ? "#fff"
-                  : "transparent",
-              color:
-                mode ===
-                "register"
-                  ? "#111"
-                  : "#fff",
-              fontWeight: 600,
-            }}
-          >
-            Register
-          </button>
-
-        </div>
-
-        <button
-          type="button"
-          onClick={
-            onGoogleLogin
-          }
-          disabled={
-            submitting
-          }
-          style={{
-            width: "100%",
-            display:
-              "flex",
-            alignItems:
-              "center",
-            justifyContent:
-              "center",
-            gap: "14px",
-            minHeight: "58px",
-            padding: "16px 22px",
-            marginBottom: "20px",
-            borderRadius: "14px",
-            border: "1px solid rgba(255,255,255,0.22)",
-            background: "#fff",
-            color: "#111",
-            fontSize: "16px",
-            fontWeight: 700,
-            letterSpacing: "0.1px",
-            boxShadow: "0 6px 18px rgba(0,0,0,0.16)",
-            cursor: submitting ? "wait" : "pointer",
-            transition: "transform 160ms ease, box-shadow 160ms ease",
-            opacity: submitting ? 0.7 : 1,
-          }}
-        >
-
-          <span
-            style={{
-              fontSize: "24px",
-              fontWeight: 800,
-              lineHeight: 1,
-              fontFamily: "Arial, sans-serif",
-              color: "#4285F4",
-            }}
-          >
-            G
-          </span>
-
-          {isRegister
-            ? "Continue with Google"
-            : "Sign in with Google"}
-
-        </button>
-
-        <div
-          style={{
-            display:
-              "flex",
-            alignItems:
-              "center",
-            gap: "10px",
-            marginBottom:
-              "18px",
-            opacity: 0.6,
-          }}
-        >
-
-          <div
-            style={{
-              flex: 1,
-              height: "1px",
-              background:
-                "currentColor",
-            }}
-          />
-
-          <span>
-            OR
-          </span>
-
-          <div
-            style={{
-              flex: 1,
-              height: "1px",
-              background:
-                "currentColor",
-            }}
-          />
-
-        </div>
-
-        <form
-          onSubmit={
-            submit
-          }
-        >
-
-          <label>
-            Email
-          </label>
-
-          <input
-            className="form-input"
-            type="email"
-            value={
-              email
-            }
-            onChange={(
-              event
-            ) =>
-              setEmail(
-                event.target
-                  .value
-              )
-            }
-            placeholder="you@example.com"
-            autoComplete="email"
-            required
-          />
-
-          <label>
-            Password
-          </label>
-
-          <input
-            className="form-input"
-            type="password"
-            value={
-              password
-            }
-            onChange={(
-              event
-            ) =>
-              setPassword(
-                event.target
-                  .value
-              )
-            }
-            placeholder="••••••••"
-            autoComplete={
-              isRegister
-                ? "new-password"
-                : "current-password"
-            }
-            required
-          />
-
-          {isRegister && (
+        <form onSubmit={submit}>
+          {!isResetConfirm && (
             <>
-              <label>
-                Confirm Password
-              </label>
-
+              <label htmlFor="auth-email">Email</label>
               <input
+                id="auth-email"
                 className="form-input"
-                type="password"
-                value={
-                  confirmPassword
-                }
-                onChange={(
-                  event
-                ) =>
-                  setConfirmPassword(
-                    event.target
-                      .value
-                  )
-                }
-                placeholder="••••••••"
-                autoComplete="new-password"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                autoComplete="email"
                 required
               />
-
-              {password &&
-                confirmPassword &&
-                password !==
-                  confirmPassword && (
-                  <div className="warning-box">
-                    Passwords do
-                    not match.
-                  </div>
-                )}
-
             </>
           )}
 
-          {apiError && (
-            <div className="warning-box">
-              {apiError}
-            </div>
+          {!isResetRequest && (
+            <>
+              <label htmlFor="auth-password">{isResetConfirm ? "New password" : "Password"}</label>
+              <input
+                id="auth-password"
+                className="form-input"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder={isResetConfirm ? "At least 8 characters" : "••••••••"}
+                autoComplete={isRegister || isResetConfirm ? "new-password" : "current-password"}
+                minLength={isResetConfirm || isRegister ? 8 : undefined}
+                required
+              />
+            </>
           )}
 
-          {successMessage && (
-            <div className="success-box">
-              {successMessage}
-            </div>
+          {(isRegister || isResetConfirm) && (
+            <>
+              <label htmlFor="auth-confirm-password">Confirm {isResetConfirm ? "new password" : "password"}</label>
+              <input
+                id="auth-confirm-password"
+                className="form-input"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Enter the password again"
+                autoComplete="new-password"
+                minLength={8}
+                required
+              />
+              {password && confirmPassword && password !== confirmPassword && (
+                <div className="warning-box">Passwords do not match.</div>
+              )}
+            </>
           )}
+
+          {apiError && !isResetMode && <div className="warning-box">{apiError}</div>}
+          {localError && <div className="warning-box">{localError}</div>}
+          {successMessage && <div className="success-box">{successMessage}</div>}
 
           <button
             className="primary-button login-button"
             type="submit"
             disabled={
               submitting ||
-              (isRegister &&
-                password !==
-                  confirmPassword)
+              ((isRegister || isResetConfirm) && password !== confirmPassword)
             }
           >
             {submitting
-              ? isRegister
-                ? "Creating account..."
-                : "Signing in..."
-              : isRegister
-                ? "Create Account"
-                : "Continue"}
+              ? isResetRequest ? "Sending reset link..." : isResetConfirm ? "Updating password..." : isRegister ? "Creating account..." : "Signing in..."
+              : isResetRequest ? "Send reset link" : isResetConfirm ? "Update password" : isRegister ? "Create Account" : "Continue"}
           </button>
-
         </form>
 
-        <p
-          style={{
-            textAlign:
-              "center",
-            marginTop:
-              "18px",
-            fontSize:
-              "14px",
-          }}
-        >
-          {isRegister
-            ? "Already have an account? "
-            : "Don't have an account? "}
-
-          <button
-            type="button"
-            onClick={() =>
-              switchMode(
-                isRegister
-                  ? "login"
-                  : "register"
-              )
-            }
-            style={{
-              border:
-                "none",
-              background:
-                "none",
-              padding: 0,
-              color:
-                "inherit",
-              textDecoration:
-                "underline",
-              cursor:
-                "pointer",
-              fontWeight:
-                700,
-            }}
-          >
-            {isRegister
-              ? "Login"
-              : "Register"}
+        {mode === "login" && (
+          <button className="forgot-password-link" type="button" onClick={() => switchMode("reset-request")}>
+            Forgot password?
           </button>
+        )}
 
-        </p>
-
+        {isResetMode ? (
+          <p className="auth-footer">
+            Remembered your password?{" "}
+            <button type="button" onClick={() => {
+              window.history.replaceState({}, "", window.location.pathname);
+              switchMode("login");
+            }}>Back to login</button>
+          </p>
+        ) : (
+          <p className="auth-footer">
+            {isRegister ? "Already have an account? " : "Don't have an account? "}
+            <button type="button" onClick={() => switchMode(isRegister ? "login" : "register")}>
+              {isRegister ? "Login" : "Register"}
+            </button>
+          </p>
+        )}
       </div>
-
     </div>
   );
 }
