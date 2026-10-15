@@ -952,8 +952,43 @@ export default function App() {
       : 0;
 
   /* =======================================================
-     BUDGET CALCULATIONS
+     MONTHLY SPENDING + BUDGET CALCULATIONS
   ======================================================= */
+
+  const monthlyExpenses =
+    useMemo(() => {
+      const currentDate = new Date();
+      const monthStart = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      );
+      const nextMonthStart = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        1
+      );
+
+      return convertedTransactions
+        .filter((transaction) => {
+          if (transaction.type !== "expense") {
+            return false;
+          }
+
+          const date = parseTransactionTimestamp(
+            transaction.timestamp || transaction.created_at
+          );
+
+          return date &&
+            date >= monthStart &&
+            date < nextMonthStart;
+        })
+        .reduce(
+          (total, transaction) =>
+            total + Number(transaction.convertedAmount || 0),
+          0
+        );
+    }, [convertedTransactions]);
 
   const budgetInMainCurrency =
     convertCurrency(
@@ -965,14 +1000,14 @@ export default function App() {
 
   const budgetPercentage =
     budgetInMainCurrency > 0
-      ? (totalExpenses /
+      ? (monthlyExpenses /
           budgetInMainCurrency) *
         100
       : 0;
 
   const budgetRemaining =
     budgetInMainCurrency -
-    totalExpenses;
+    monthlyExpenses;
 
   const budgetExceeded =
     budgetRemaining < 0;
@@ -1397,6 +1432,9 @@ export default function App() {
             expenses={
               totalExpenses
             }
+            monthlyExpenses={
+              monthlyExpenses
+            }
             remaining={
               remainingMoney
             }
@@ -1484,7 +1522,7 @@ export default function App() {
               setBudget
             }
             expenses={
-              totalExpenses
+              monthlyExpenses
             }
             budgetInMainCurrency={
               budgetInMainCurrency
@@ -1999,6 +2037,7 @@ function Topbar({
 function Dashboard({
   totalMoney,
   expenses,
+  monthlyExpenses,
   remaining,
   moneyUsagePercentage,
   budget,
@@ -2301,7 +2340,7 @@ function Dashboard({
 
                 <strong>
                   {formatMoney(
-                    expenses,
+                    monthlyExpenses,
                     currency
                   )}
                 </strong>
