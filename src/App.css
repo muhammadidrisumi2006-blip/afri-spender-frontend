@@ -665,9 +665,17 @@ select:focus {
 
   background:
     conic-gradient(
-      var(--green) var(--progress),
+      var(--ring-color, var(--green)) var(--progress),
       var(--surface-3) 0
     );
+
+  box-shadow: 0 0 28px rgba(185, 242, 39, 0.07);
+  transition: background 300ms ease, box-shadow 300ms ease, transform 300ms ease;
+}
+
+.budget-ring:hover {
+  transform: scale(1.025);
+  box-shadow: 0 0 34px rgba(185, 242, 39, 0.12);
 }
 
 .budget-numbers {
