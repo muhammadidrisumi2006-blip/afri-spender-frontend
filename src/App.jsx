@@ -2262,12 +2262,11 @@ function Dashboard({
 
             <div>
               <h3>
-                Budget
+                Monthly Budget
               </h3>
 
               <p>
-                Your spending
-                limit
+                Your monthly spending limit
               </p>
             </div>
 
@@ -2288,6 +2287,8 @@ function Dashboard({
 
             <div
               className="budget-ring"
+              role="img"
+              aria-label={`Monthly budget ${formatNumber(budgetPercentage)} percent used`}
               style={{
                 "--progress": `${
                   Math.min(
@@ -2298,6 +2299,7 @@ function Dashboard({
                     100
                   )
                 }%`,
+                "--ring-color": budgetExceeded ? "var(--red)" : "var(--green)",
               }}
             >
 
@@ -2335,7 +2337,7 @@ function Dashboard({
 
               <div>
                 <span>
-                  Money out
+                  Spent this month
                 </span>
 
                 <strong>
