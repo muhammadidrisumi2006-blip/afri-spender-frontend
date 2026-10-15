@@ -2094,10 +2094,6 @@ function Dashboard({
 
         <div className="stat-card">
 
-          <div className="stat-icon expense">
-            ↓
-          </div>
-
           <div>
             <span>
               Spent
@@ -2114,10 +2110,6 @@ function Dashboard({
         </div>
 
         <div className="stat-card">
-
-          <div className="stat-icon remaining">
-            ✓
-          </div>
 
           <div>
             <span>
@@ -2141,10 +2133,6 @@ function Dashboard({
         </div>
 
         <div className="stat-card">
-
-          <div className="stat-icon budget">
-            ◎
-          </div>
 
           <div>
             <span>
@@ -2373,7 +2361,7 @@ function Dashboard({
 
           {budgetExceeded ? (
             <div className="warning-box">
-              ⚠️ Budget exceeded
+              Budget exceeded
               by{" "}
               <strong>
                 {formatMoney(
@@ -2384,7 +2372,7 @@ function Dashboard({
             </div>
           ) : (
             <div className="success-box">
-              ✓ You have{" "}
+              You have{" "}
               <strong>
                 {formatMoney(
                   budgetRemaining,
