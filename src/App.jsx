@@ -2142,8 +2142,8 @@ function Dashboard({
               </h3>
 
               <p>
-                Spending compared
-                with total money
+                Money out compared
+                with total money in
               </p>
             </div>
 
@@ -2187,7 +2187,7 @@ function Dashboard({
 
               <div>
                 <span>
-                  Total money
+                  Money in
                 </span>
 
                 <strong>
@@ -2200,7 +2200,7 @@ function Dashboard({
 
               <div>
                 <span>
-                  Total spent
+                  Money out
                 </span>
 
                 <strong>
@@ -2296,7 +2296,7 @@ function Dashboard({
 
               <div>
                 <span>
-                  Spent
+                  Money out
                 </span>
 
                 <strong>
@@ -3406,7 +3406,7 @@ function Budgets({
             <div>
 
               <span>
-                Spent
+                Money Out
               </span>
 
               <strong>
